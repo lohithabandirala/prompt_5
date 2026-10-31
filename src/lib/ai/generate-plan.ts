@@ -197,15 +197,17 @@ async function callModel(
 async function generateValidated<T>(
   prompt: string,
   schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
-  options: ModelCallOptions = {}
+  options: ModelCallOptions = {},
+  deadlineMs?: number
 ): Promise<T> {
   let lastError: AIGenerationError | null = null;
   const startedAt = Date.now();
+  const budgetEndsAt = deadlineMs ?? startedAt + GENERATION_BUDGET_MS;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     if (attempt > 0) await delay(RETRY_BASE_DELAY_MS * Math.pow(3, attempt - 1));
 
-    const remaining = GENERATION_BUDGET_MS - (Date.now() - startedAt);
+    const remaining = budgetEndsAt - Date.now();
     if (remaining < MIN_ATTEMPT_MS) {
       throw lastError ?? new AIGenerationError(
         'The AI request ran out of time. Please try again.',
@@ -222,7 +224,7 @@ async function generateValidated<T>(
         error instanceof AIGenerationError &&
         error.retryable &&
         attempt < MAX_ATTEMPTS - 1 &&
-        GENERATION_BUDGET_MS - (Date.now() - startedAt) > MIN_RETRY_BUDGET_MS
+        budgetEndsAt - Date.now() > MIN_RETRY_BUDGET_MS
       ) {
         lastError = error;
         continue;
@@ -269,8 +271,21 @@ async function generateValidated<T>(
 export async function generateEventPlan(input: EventInput): Promise<AIPlanResponse> {
   // Sequential calls to avoid doubling rate pressure on the provider.
   // Free-tier and low-quota keys are easily exhausted by parallel requests.
-  const coreValue = await generateValidated(buildPlanCorePrompt(input), AIPlanCoreSchema);
-  const operationsValue = await generateValidated(buildPlanOperationsPrompt(input), AIPlanOperationsSchema);
+  // Both halves share one deadline so the route returns a clean TIMEOUT before
+  // the 60s platform limit instead of being killed mid-response.
+  const deadline = Date.now() + GENERATION_BUDGET_MS;
+  const coreValue = await generateValidated(
+    buildPlanCorePrompt(input),
+    AIPlanCoreSchema,
+    {},
+    deadline
+  );
+  const operationsValue = await generateValidated(
+    buildPlanOperationsPrompt(input),
+    AIPlanOperationsSchema,
+    {},
+    deadline
+  );
 
   const merged = AIPlanResponseSchema.safeParse({
     ...coreValue,

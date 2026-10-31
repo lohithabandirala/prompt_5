@@ -22,6 +22,13 @@ const RETIRED_MODEL_IDS = new Set([
   'gemini-2.0-flash-lite-001',
 ]);
 
+/**
+ * Models that are available but cannot reliably finish structured generation
+ * inside the 50s per-request / 60s route budget. Pinning one makes every plan
+ * request abort with TIMEOUT, so fall back to the known-fast default instead.
+ */
+const OVER_BUDGET_MODEL_IDS = new Set(['gemini-3.7-flash', 'gemini-3.8-flash']);
+
 export function resolveModelName(): string {
   const configured = process.env.GEMINI_MODEL?.trim();
   if (!configured) return DEFAULT_MODEL;
@@ -32,6 +39,18 @@ export function resolveModelName(): string {
         event: 'retired_model_configured',
         configured,
         using: DEFAULT_MODEL,
+      })
+    );
+    return DEFAULT_MODEL;
+  }
+
+  if (OVER_BUDGET_MODEL_IDS.has(configured)) {
+    console.warn(
+      JSON.stringify({
+        event: 'unsupported_model_configured',
+        configured,
+        using: DEFAULT_MODEL,
+        reason: 'exceeds_structured_generation_budget',
       })
     );
     return DEFAULT_MODEL;

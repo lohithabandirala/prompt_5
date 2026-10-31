@@ -31,6 +31,18 @@ describe('resolveModelName', () => {
     expect(String(warn.mock.calls[0][0])).toContain('retired_model_configured');
   });
 
+  it.each(['gemini-3.7-flash', 'gemini-3.8-flash'])(
+    'falls back from %s because it exceeds the structured-generation budget',
+    (model) => {
+      process.env.GEMINI_MODEL = model;
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      expect(resolveModelName()).toBe(DEFAULT_MODEL);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('unsupported_model_configured');
+    }
+  );
+
   it('honours another supported model when explicitly configured', () => {
     process.env.GEMINI_MODEL = 'gemini-3.5-flash';
     expect(resolveModelName()).toBe('gemini-3.5-flash');
