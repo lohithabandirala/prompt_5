@@ -12,6 +12,7 @@ import {
   validateBudgetTotal,
 } from '@/lib/budget/calculate';
 import { getCurrencyPrecision } from '@/lib/schemas/event-input';
+import RegenerateButton from './RegenerateButton';
 
 interface BudgetPlannerProps {
   categories: BudgetCategory[];
@@ -97,14 +98,11 @@ export default function BudgetPlanner({
         <div className="flex items-start justify-between gap-4 mb-4">
           <h3 className="section-title">💰 Budget Overview</h3>
           {onRegenerate && (
-            <button
+            <RegenerateButton
               onClick={onRegenerate}
-              disabled={isRegenerating}
-              className="btn btn-ghost btn-sm"
-              aria-label="Regenerate budget allocations"
-            >
-              {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} Regenerate
-            </button>
+              ariaLabel="Regenerate budget allocations"
+              isRegenerating={isRegenerating}
+            />
           )}
         </div>
 

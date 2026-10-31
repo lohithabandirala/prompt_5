@@ -18,28 +18,7 @@ import type {
   VendorEntry,
 } from '../schemas/event-plan';
 import type { EventInput } from '../schemas/event-input';
-
-let fallbackIdCounter = 0;
-
-function createUuid(): string {
-  const globalCrypto = globalThis.crypto;
-
-  if (globalCrypto && typeof globalCrypto.randomUUID === 'function') {
-    return globalCrypto.randomUUID();
-  }
-
-  // Non-cryptographic fallback for runtimes without Web Crypto. These ids are
-  // only used for local React keys and local storage records, never for
-  // authentication or security decisions.
-  fallbackIdCounter = (fallbackIdCounter + 1) % 0xffff;
-  const random = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
-  const counter = fallbackIdCounter.toString(16).padStart(4, '0');
-  return `${Date.now().toString(16)}-${counter}-${random}-0000`;
-}
-
-function shortId(): string {
-  return createUuid().slice(0, 8);
-}
+import { createUuid, shortId } from '../utils/id';
 
 export function normalizeBudget(
   categories: RegenerateResults['budget']['budgetCategories'],

@@ -3,6 +3,8 @@
 import { useCallback, useState } from 'react';
 import type { VendorEntry } from '@/lib/schemas/event-plan';
 import { formatCurrency } from '@/lib/budget/calculate';
+import { createId } from '@/lib/utils/id';
+import RegenerateButton from './RegenerateButton';
 
 interface VendorChecklistProps {
   vendors: VendorEntry[];
@@ -136,7 +138,7 @@ export default function VendorChecklist({
   const handleAddVendor = useCallback(() => {
     if (!newVendor.category.trim()) return;
     const created: VendorEntry = {
-      id: `vendor-custom-${Date.now()}`,
+      id: createId('vendor-custom'),
       category: newVendor.category.trim(),
       status: 'researching',
       vendorName: newVendor.vendorName.trim() || undefined,
@@ -169,15 +171,11 @@ export default function VendorChecklist({
               + Add vendor
             </button>
             {onRegenerate && (
-              <button
-                type="button"
+              <RegenerateButton
                 onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="btn btn-ghost btn-sm"
-                aria-label="Regenerate vendor checklist"
-              >
-                {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} Regenerate
-              </button>
+                ariaLabel="Regenerate vendor checklist"
+                isRegenerating={isRegenerating}
+              />
             )}
           </div>
         </div>

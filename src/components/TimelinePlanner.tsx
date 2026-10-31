@@ -11,6 +11,8 @@ import {
   sortTasks,
   todayCalendarDate,
 } from '@/lib/timeline/schedule';
+import { createId } from '@/lib/utils/id';
+import RegenerateButton from './RegenerateButton';
 
 interface TimelinePlannerProps {
   tasks: TimelineTask[];
@@ -124,7 +126,7 @@ export default function TimelinePlanner({
 
     const days = daysBetween(newTask.dueDate || todayCalendarDate(), eventDate);
     const created: TimelineTask = {
-      id: `task-custom-${Date.now()}`,
+      id: createId('task-custom'),
       title: newTask.title.trim(),
       phase: newTask.phase.trim() || 'Custom tasks',
       daysBeforeEvent: days !== null && days >= 0 ? days : 0,
@@ -158,15 +160,11 @@ export default function TimelinePlanner({
               + Add task
             </button>
             {onRegenerate && (
-              <button
-                type="button"
+              <RegenerateButton
                 onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="btn btn-ghost btn-sm"
-                aria-label="Regenerate timeline"
-              >
-                {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} Regenerate
-              </button>
+                ariaLabel="Regenerate timeline"
+                isRegenerating={isRegenerating}
+              />
             )}
           </div>
         </div>

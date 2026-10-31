@@ -138,7 +138,7 @@ export const ServerEventInputSchema = EventInputSchema.superRefine((data, ctx) =
   const eventDate = new Date(data.eventDate);
   const now = new Date();
 
-  // Allow past dates but flag them
+  // Reject past dates; the client also blocks them before submission.
   if (eventDate < now) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -158,5 +158,3 @@ export const ServerEventInputSchema = EventInputSchema.superRefine((data, ctx) =
     });
   }
 });
-
-export type ServerEventInput = z.infer<typeof ServerEventInputSchema>;

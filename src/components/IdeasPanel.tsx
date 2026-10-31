@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { CelebrationIdea } from '@/lib/schemas/event-plan';
 import type { EventInput } from '@/lib/schemas/event-input';
+import RegenerateButton from './RegenerateButton';
 
 interface IdeasPanelProps {
   ideas: CelebrationIdea[];
@@ -84,15 +85,12 @@ export default function IdeasPanel({
               </button>
             )}
             {onRegenerateIdeas && (
-              <button
-                type="button"
+              <RegenerateButton
                 onClick={onRegenerateIdeas}
-                disabled={isRegenerating}
-                className="btn btn-ghost btn-sm"
-                aria-label="Regenerate celebration ideas"
-              >
-                {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} Fresh ideas
-              </button>
+                ariaLabel="Regenerate celebration ideas"
+                label="Fresh ideas"
+                isRegenerating={isRegenerating}
+              />
             )}
           </div>
         </div>

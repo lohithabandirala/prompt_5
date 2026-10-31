@@ -12,9 +12,11 @@ import {
   deleteEvent,
   clearAllEvents,
 } from '@/lib/persistence/plans';
+import { createId } from '@/lib/utils/id';
 import { postJson, ApiError } from '@/lib/api/client';
 import { mergeRegeneratedSection } from '@/lib/plan/merge';
 import { buildRegenerationContext } from '@/lib/plan/section-context';
+import { SECTION_LABEL, type PlanTab } from '@/lib/plan/sections';
 
 import EventWizard from '@/components/EventWizard';
 import EventOverview from '@/components/EventOverview';
@@ -27,9 +29,10 @@ import SavedEventsDashboard from '@/components/SavedEventsDashboard';
 import SettingsPanel from '@/components/SettingsPanel';
 import ExportBar from '@/components/ExportBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PlanTabs from '@/components/PlanTabs';
+import GenerationOverlay from '@/components/GenerationOverlay';
 
 type AppView = 'dashboard' | 'wizard' | 'plan' | 'settings';
-type PlanTab = 'overview' | 'budget' | 'timeline' | 'vendors' | 'ideas' | 'schedule';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -38,24 +41,6 @@ type DialogState =
   | { kind: 'clear-all' }
   | null;
 
-const PLAN_TABS: Array<{ id: PlanTab; label: string; emoji: string }> = [
-  { id: 'overview', label: 'Overview', emoji: '📋' },
-  { id: 'budget', label: 'Budget', emoji: '💰' },
-  { id: 'timeline', label: 'Timeline', emoji: '📅' },
-  { id: 'vendors', label: 'Vendors', emoji: '🤝' },
-  { id: 'ideas', label: 'Ideas', emoji: '💡' },
-  { id: 'schedule', label: 'Run sheet', emoji: '🗓️' },
-];
-
-const SECTION_LABEL: Record<RegenerateSection, string> = {
-  theme: 'Theme',
-  budget: 'Budget',
-  timeline: 'Timeline',
-  vendors: 'Vendor checklist',
-  ideas: 'Ideas',
-  schedule: 'Run sheet',
-};
-
 const PlanResponseSchema = z.object({ plan: EventPlanSchema });
 
 // Hydration detection without a setState-in-effect: React uses the server
@@ -63,13 +48,6 @@ const PlanResponseSchema = z.object({ plan: EventPlanSchema });
 const subscribeToHydration = () => () => undefined;
 const getClientHydratedSnapshot = () => true;
 const getServerHydratedSnapshot = () => false;
-
-function createId(prefix: string): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export default function Home() {
   const [view, setView] = useState<AppView>('dashboard');
@@ -282,13 +260,14 @@ export default function Home() {
     (updates: Partial<EventPlan>) => {
       if (!currentEvent?.plan) return;
 
+      const now = new Date().toISOString();
       const updatedEvent: SavedEvent = {
         ...currentEvent,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
         plan: {
           ...currentEvent.plan,
           ...updates,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now,
         },
       };
 
@@ -335,13 +314,14 @@ export default function Home() {
         }
 
         const merged = mergeRegeneratedSection(currentEvent.plan, parsed.data);
+        const now = new Date().toISOString();
         const updatedEvent: SavedEvent = {
           ...currentEvent,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now,
           plan: {
             ...currentEvent.plan,
             ...merged,
-            updatedAt: new Date().toISOString(),
+            updatedAt: now,
           },
         };
 
@@ -410,24 +390,6 @@ export default function Home() {
 
     setDialog(null);
   }, [dialog, currentEvent, refreshSavedEvents]);
-
-  const handleTabKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-      let nextIndex: number | null = null;
-
-      if (event.key === 'ArrowRight') nextIndex = (index + 1) % PLAN_TABS.length;
-      else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + PLAN_TABS.length) % PLAN_TABS.length;
-      else if (event.key === 'Home') nextIndex = 0;
-      else if (event.key === 'End') nextIndex = PLAN_TABS.length - 1;
-
-      if (nextIndex === null) return;
-      event.preventDefault();
-      const nextTab = PLAN_TABS[nextIndex];
-      setActiveTab(nextTab.id);
-      document.getElementById(`tab-${nextTab.id}`)?.focus();
-    },
-    []
-  );
 
   const dialogCopy = (() => {
     if (!dialog) return null;
@@ -629,36 +591,11 @@ export default function Home() {
             </div>
 
             <div className="mb-6">
-              <div
-                className="no-print flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1"
-                role="tablist"
-                aria-label="Event plan sections"
-              >
-                {PLAN_TABS.map((tab, index) => (
-                  <button
-                    key={tab.id}
-                    id={`tab-${tab.id}`}
-                    role="tab"
-                    type="button"
-                    aria-selected={activeTab === tab.id}
-                    aria-controls={`tabpanel-${tab.id}`}
-                    tabIndex={activeTab === tab.id ? 0 : -1}
-                    onClick={() => setActiveTab(tab.id)}
-                    onKeyDown={(event) => handleTabKeyDown(event, index)}
-                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span aria-hidden="true">{tab.emoji}</span>
-                    {tab.label}
-                    {regenerating === tab.id && (
-                      <span className="spinner h-3 w-3" aria-hidden="true" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              <PlanTabs
+                activeTab={activeTab}
+                regenerating={regenerating}
+                onSelect={setActiveTab}
+              />
             </div>
 
             <div
@@ -785,41 +722,20 @@ export default function Home() {
 
       {/* Real generation progress, cancellable */}
       {(isGenerating || regenerating) && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="generation-title"
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-2xl">
-            <div className="mb-4 text-5xl" aria-hidden="true">✨</div>
-            <h2 id="generation-title" className="mb-2 text-xl font-bold text-slate-900">
-              {regenerating ? `Regenerating ${SECTION_LABEL[regenerating].toLowerCase()}…` : 'Creating your plan…'}
-            </h2>
-            <p className="mb-4 text-sm text-slate-500">
-              {regenerating
-                ? 'Only this section is regenerated. Your other edits stay untouched.'
-                : 'This usually takes 10–30 seconds. The plan is not saved until the AI returns a valid response.'}
-            </p>
-            <div className="mb-4 flex justify-center">
-              <span
-                className="spinner"
-                style={{ width: '2rem', height: '2rem', borderWidth: '3px' }}
-                aria-hidden="true"
-              />
-            </div>
-            <p className="mb-4 text-xs text-slate-500" aria-live="polite">
-              {elapsedSeconds}s elapsed
-            </p>
-            <button
-              type="button"
-              onClick={() => abortRef.current?.abort()}
-              className="btn btn-ghost btn-sm"
-            >
-              Cancel request
-            </button>
-          </div>
-        </div>
+        <GenerationOverlay
+          title={
+            regenerating
+              ? `Regenerating ${SECTION_LABEL[regenerating].toLowerCase()}…`
+              : 'Creating your plan…'
+          }
+          description={
+            regenerating
+              ? 'Only this section is regenerated. Your other edits stay untouched.'
+              : 'This usually takes 10–30 seconds. The plan is not saved until the AI returns a valid response.'
+          }
+          elapsedSeconds={elapsedSeconds}
+          onCancel={() => abortRef.current?.abort()}
+        />
       )}
 
       <ConfirmDialog

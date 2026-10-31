@@ -50,5 +50,3 @@ export const RegeneratedSectionPayloadSchema = z.discriminatedUnion('section', [
     }),
   }),
 ]);
-
-export type RegeneratedSectionPayloadInput = z.infer<typeof RegeneratedSectionPayloadSchema>;

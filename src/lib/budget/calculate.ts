@@ -6,8 +6,7 @@ import type { BudgetCategory } from '../schemas/event-plan';
  * All budget maths is performed on integer minor units to avoid float drift.
  */
 export function roundCurrency(amount: number, precision: number): number {
-  const factor = Math.pow(10, precision);
-  return Math.round(amount * factor) / factor;
+  return fromMinorUnits(toMinorUnits(amount, precision), precision);
 }
 
 function toMinorUnits(amount: number, precision: number): number {
@@ -181,9 +180,8 @@ export function reconcileBudgetCategories(
   if (categories.length === 0) return [];
 
   const precision = getCurrencyPrecision(currency);
-  const factor = Math.pow(10, precision);
-  const budgetUnits = Math.round(totalBudget * factor);
-  const currentUnits = categories.map((cat) => Math.round(cat.allocatedAmount * factor));
+  const budgetUnits = toMinorUnits(totalBudget, precision);
+  const currentUnits = categories.map((cat) => toMinorUnits(cat.allocatedAmount, precision));
   let difference = budgetUnits - currentUnits.reduce((sum, units) => sum + units, 0);
 
   if (difference !== 0) {
@@ -275,25 +273,25 @@ export function calculateRemainingBudget(
   let contingencyUnits = 0;
 
   for (const cat of categories) {
-    const planned = Math.round(cat.allocatedAmount * Math.pow(10, precision));
+    const planned = toMinorUnits(cat.allocatedAmount, precision);
     plannedUnits += planned;
 
     if (typeof cat.actualAmount === 'number') {
-      actualUnits += Math.round(cat.actualAmount * Math.pow(10, precision));
+      actualUnits += toMinorUnits(cat.actualAmount, precision);
     }
     if (typeof cat.quotedAmount === 'number') {
-      quotedUnits += Math.round(cat.quotedAmount * Math.pow(10, precision));
+      quotedUnits += toMinorUnits(cat.quotedAmount, precision);
     }
 
     const effective = cat.actualAmount ?? cat.quotedAmount ?? cat.allocatedAmount;
-    effectiveUnits += Math.round(effective * Math.pow(10, precision));
+    effectiveUnits += toMinorUnits(effective, precision);
 
     if (cat.isContingency) {
-      contingencyUnits += Math.round(effective * Math.pow(10, precision));
+      contingencyUnits += toMinorUnits(effective, precision);
     }
   }
 
-  const budgetUnits = Math.round(totalBudget * Math.pow(10, precision));
+  const budgetUnits = toMinorUnits(totalBudget, precision);
   const remaining = fromMinorUnits(budgetUnits - effectiveUnits, precision);
 
   return {
@@ -324,9 +322,8 @@ export function calculateVariance(category: BudgetCategory, currency: string): n
   const committed =
     category.actualAmount ?? category.quotedAmount ?? category.allocatedAmount;
   const units =
-    Math.round(category.allocatedAmount * Math.pow(10, precision)) -
-    Math.round(committed * Math.pow(10, precision));
-  return units / Math.pow(10, precision);
+    toMinorUnits(category.allocatedAmount, precision) - toMinorUnits(committed, precision);
+  return fromMinorUnits(units, precision);
 }
 
 /**

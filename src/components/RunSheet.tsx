@@ -7,6 +7,8 @@ import {
   parseCalendarDate,
   sortScheduleEntries,
 } from '@/lib/timeline/schedule';
+import { createId } from '@/lib/utils/id';
+import RegenerateButton from './RegenerateButton';
 
 interface RunSheetProps {
   entries: ScheduleEntry[];
@@ -75,7 +77,7 @@ export default function RunSheet({
     if (!newEntry.time || !newEntry.activity.trim()) return;
 
     const created: ScheduleEntry = {
-      id: `run-custom-${Date.now()}`,
+      id: createId('run-custom'),
       time: newEntry.time,
       endTime: newEntry.endTime || undefined,
       activity: newEntry.activity.trim(),
@@ -117,15 +119,11 @@ export default function RunSheet({
               🖨️ Print
             </button>
             {onRegenerate && (
-              <button
-                type="button"
+              <RegenerateButton
                 onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="btn btn-ghost btn-sm"
-                aria-label="Regenerate run sheet"
-              >
-                {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} Regenerate
-              </button>
+                ariaLabel="Regenerate run sheet"
+                isRegenerating={isRegenerating}
+              />
             )}
           </div>
         </div>

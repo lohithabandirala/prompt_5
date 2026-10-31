@@ -3,6 +3,7 @@
 import type { EventPlan } from '@/lib/schemas/event-plan';
 import type { EventInput } from '@/lib/schemas/event-input';
 import { getDaysUntilEvent, parseCalendarDate } from '@/lib/timeline/schedule';
+import RegenerateButton from './RegenerateButton';
 
 interface EventOverviewProps {
   plan: EventPlan;
@@ -89,14 +90,13 @@ export default function EventOverview({
         <div className="flex items-start justify-between gap-4">
           <h3 className="section-title">🎨 Theme: {plan.recommendedTheme}</h3>
           {onRegenerateTheme && (
-            <button
+            <RegenerateButton
               onClick={onRegenerateTheme}
-              disabled={isRegenerating}
-              className="btn btn-ghost btn-sm flex-shrink-0"
-              aria-label="New Theme — regenerate theme suggestions"
-            >
-              {isRegenerating ? <span className="spinner" aria-hidden="true" /> : '🔄'} New Theme
-            </button>
+              ariaLabel="New Theme - regenerate theme suggestions"
+              label="New Theme"
+              isRegenerating={isRegenerating}
+              className="flex-shrink-0"
+            />
           )}
         </div>
         <p className="text-slate-600 mb-4 leading-relaxed">{plan.themeExplanation}</p>

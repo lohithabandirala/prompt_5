@@ -135,8 +135,9 @@ Return JSON with exactly this structure:
 }
 
 /**
- * Core half of a full plan. Kept separate from the operational half so both
- * requests can run in parallel and finish quickly.
+ * Core half of a full plan. Kept separate from the operational half so each
+ * request stays small and can be retried independently. The halves are
+ * requested sequentially to respect provider rate limits.
  */
 export function buildPlanCorePrompt(input: EventInput): string {
   return `Create the overview, theme, budget and celebration ideas for the event in the data block below.

@@ -29,11 +29,11 @@ const CATEGORY_INFO = {
   wedding: { emoji: '💍', label: 'Wedding', desc: 'Ceremony & reception planning' },
   birthday: { emoji: '🎂', label: 'Birthday', desc: 'Birthday celebration for any age' },
   community: { emoji: '🎪', label: 'Community Event', desc: 'Community gathering or festival' },
-};
+} satisfies Record<EventInput['category'], { emoji: string; label: string; desc: string }>;
 
 const STYLE_OPTIONS = EventStyle.options;
 const VENUE_OPTIONS = VenuePreference.options;
-const GOAL_OPTIONS: Array<{ value: string; label: string }> = [
+const GOAL_OPTIONS: Array<{ value: PlanningGoal; label: string }> = [
   { value: 'low_cost', label: '💰 Low Cost' },
   { value: 'memorable_experience', label: '✨ Memorable Experience' },
   { value: 'elegance', label: '🎩 Elegance' },
@@ -75,6 +75,15 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   }, []);
+
+  /** Clear a numeric field back to `undefined` when the input is emptied. */
+  const updateNumberField = useCallback(
+    (field: 'totalBudget' | 'guestCount', rawValue: string) => {
+      setForm((prev) => ({ ...prev, [field]: rawValue === '' ? undefined : Number(rawValue) }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    },
+    []
+  );
 
   const collectStepErrors = (stepIndex: number): FormErrors => {
     const newErrors: FormErrors = {};
@@ -210,12 +219,12 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
     updateField('colorPalette', updated);
   };
 
-  const toggleGoal = (goal: string) => {
+  const toggleGoal = (goal: PlanningGoal) => {
     const current = form.goals || [];
-    if (current.includes(goal as EventInput['goals'][number])) {
-      updateField('goals', current.filter((g) => g !== goal) as EventInput['goals']);
+    if (current.includes(goal)) {
+      updateField('goals', current.filter((item) => item !== goal));
     } else if (current.length < 5) {
-      updateField('goals', [...current, goal] as EventInput['goals']);
+      updateField('goals', [...current, goal]);
     }
   };
 
@@ -223,7 +232,12 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() + 5);
   const maxDateValue = maxDate.toISOString().slice(0, 10);
-  const isPastDate = Boolean(form.eventDate) && isDateInPast(form.eventDate!);
+  const isPastDate = form.eventDate ? isDateInPast(form.eventDate) : false;
+
+  const stepTwoErrors = Object.entries(errors).filter(
+    ([field]) =>
+      !['category', 'eventDate', 'location', 'currency', 'totalBudget', 'guestCount'].includes(field)
+  );
 
   return (
     <div className="card max-w-2xl mx-auto" role="form" aria-label="Event creation wizard">
@@ -376,7 +390,7 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
                   id="totalBudget"
                   className={`input-field ${errors.totalBudget ? 'input-error' : ''}`}
                   value={form.totalBudget ?? ''}
-                  onChange={(e) => updateField('totalBudget', e.target.value ? Number(e.target.value) : undefined as unknown as number)}
+                  onChange={(e) => updateNumberField('totalBudget', e.target.value)}
                   placeholder="e.g. 5000"
                   min={MIN_BUDGET}
                   max={MAX_BUDGET}
@@ -399,7 +413,7 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
                   id="guestCount"
                   className={`input-field max-w-xs ${errors.guestCount ? 'input-error' : ''}`}
                   value={form.guestCount ?? ''}
-                  onChange={(e) => updateField('guestCount', e.target.value ? Number(e.target.value) : undefined as unknown as number)}
+                  onChange={(e) => updateNumberField('guestCount', e.target.value)}
                   placeholder="e.g. 50"
                   min={1}
                   max={MAX_GUEST_COUNT}
@@ -422,21 +436,13 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
             <legend className="section-title">Personalize Your Event</legend>
             <p className="text-slate-500 text-sm mb-6">Optional details to help us create the perfect plan. Skip anything that doesn&apos;t apply.</p>
 
-            {Object.entries(errors)
-              .filter(([field]) =>
-                !['category', 'eventDate', 'location', 'currency', 'totalBudget', 'guestCount'].includes(field)
-              )
-              .length > 0 && (
+            {stepTwoErrors.length > 0 && (
               <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
                 <p className="text-sm font-semibold text-red-800">Please correct these details:</p>
                 <ul className="mt-1 list-disc pl-5 text-sm text-red-700">
-                  {Object.entries(errors)
-                    .filter(([field]) =>
-                      !['category', 'eventDate', 'location', 'currency', 'totalBudget', 'guestCount'].includes(field)
-                    )
-                    .map(([field, message]) => (
-                      <li key={field}>{message}</li>
-                    ))}
+                  {stepTwoErrors.map(([field, message]) => (
+                    <li key={field}>{message}</li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -604,11 +610,11 @@ export default function EventWizard({ onSubmit, isLoading, initialData, submitLa
                       type="button"
                       onClick={() => toggleGoal(goal.value)}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                        form.goals?.includes(goal.value as PlanningGoal)
+                        form.goals?.includes(goal.value)
                           ? 'bg-indigo-100 border-indigo-400 text-indigo-700'
                           : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
                       }`}
-                      aria-pressed={form.goals?.includes(goal.value as PlanningGoal)}
+                      aria-pressed={form.goals?.includes(goal.value)}
                     >
                       {goal.label}
                     </button>

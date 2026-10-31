@@ -8,15 +8,13 @@ import {
   type RegenerateSection,
 } from '@/lib/schemas/event-plan';
 import { regenerateSection, AIGenerationError } from '@/lib/ai/generate-plan';
-import { isAiConfigured } from '@/lib/ai/client';
 import { buildRegeneratedPayload } from '@/lib/plan/build-plan';
 import {
-  validateRequestSize,
-  safeParseJSON,
-  validateWithSchema,
-} from '@/lib/security/validate-request';
-import { checkRateLimit, getClientIdentifier } from '@/lib/security/rate-limit';
-import { jsonOk, jsonError, toErrorResponse, logMetric } from '@/lib/api/responses';
+  enforceRateLimit,
+  readValidatedBody,
+  requireAiConfigured,
+} from '@/lib/api/request';
+import { jsonOk, toErrorResponse, logMetric, errorCode } from '@/lib/api/responses';
 
 export const maxDuration = 60;
 
@@ -32,31 +30,25 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
 
   try {
-    const rateCheck = checkRateLimit(getClientIdentifier(request.headers), 10, 60_000);
-    if (!rateCheck.allowed) {
-      return jsonError('Too many regeneration requests. Please wait and try again.', 429, 'RATE_LIMITED');
-    }
-
-    const body = await request.text();
-    validateRequestSize(body);
-    const { section, input, currentSummary } = validateWithSchema(
-      RegenerateRequestSchema,
-      safeParseJSON(body)
+    const limited = enforceRateLimit(
+      request,
+      'Too many regeneration requests. Please wait and try again.'
     );
+    if (limited) return limited;
 
-    if (!isAiConfigured()) {
-      return jsonError(
-        'The AI planner is not configured on this server. Add GEMINI_API_KEY to the server environment.',
-        503,
-        'NOT_CONFIGURED'
-      );
-    }
+    const {
+      data: { section, input, currentSummary },
+      rawBody,
+    } = await readValidatedBody(request, RegenerateRequestSchema);
+
+    const notConfigured = requireAiConfigured();
+    if (notConfigured) return notConfigured;
 
     const rawResult = await regenerateSection(section, input, currentSummary);
 
     // Re-validate the section output against its exact schema. This is the
     // boundary that prevents unvalidated model data from entering the plan.
-    const sectionSchema = RegenerateResultSchemas[section as RegenerateSection];
+    const sectionSchema = RegenerateResultSchemas[section];
     const parsed = sectionSchema.safeParse(rawResult);
     if (!parsed.success) {
       throw new AIGenerationError(
@@ -74,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     logMetric('plan_section_regenerated', {
       latencyMs: Date.now() - startedAt,
-      inputBytes: body.length,
+      inputBytes: rawBody.length,
       section,
     });
 
@@ -82,7 +74,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logMetric('plan_regeneration_failed', {
       latencyMs: Date.now() - startedAt,
-      code: error instanceof AIGenerationError ? error.code : 'INTERNAL_ERROR',
+      code: errorCode(error),
     });
     return toErrorResponse(error);
   }

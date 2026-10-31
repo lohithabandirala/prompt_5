@@ -241,7 +241,7 @@ export const AIPlanResponseSchema = z.object({
 export type AIPlanResponse = z.infer<typeof AIPlanResponseSchema>;
 
 /**
- * The plan is generated as two independent halves in parallel. Smaller
+ * The plan is generated as two halves (core, then operations). Smaller
  * responses finish well inside the serverless budget, and a malformed half can
  * be retried without discarding the other half.
  */
@@ -268,9 +268,6 @@ export const AIPlanOperationsSchema = AIPlanResponseSchema.pick({
   assumptions: true,
   unresolvedQuestions: true,
 });
-
-export type AIPlanCore = z.infer<typeof AIPlanCoreSchema>;
-export type AIPlanOperations = z.infer<typeof AIPlanOperationsSchema>;
 
 // ── Partial regeneration schemas ───────────────────────────────
 export const RegenerateSectionSchema = z.enum([
@@ -306,11 +303,3 @@ export const RegenerateResultSchemas = {
 export type RegenerateResults = {
   [K in RegenerateSection]: z.infer<(typeof RegenerateResultSchemas)[K]>;
 };
-
-export type RegenerateResponse =
-  | { section: 'ideas'; result: RegenerateResults['ideas'] }
-  | { section: 'budget'; result: RegenerateResults['budget'] }
-  | { section: 'timeline'; result: RegenerateResults['timeline'] }
-  | { section: 'vendors'; result: RegenerateResults['vendors'] }
-  | { section: 'schedule'; result: RegenerateResults['schedule'] }
-  | { section: 'theme'; result: RegenerateResults['theme'] };

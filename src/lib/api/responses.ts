@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ValidationError } from '../security/validate-request';
-import { AIGenerationError } from '../ai/generate-plan';
+import { AIGenerationError, type AIGenerationErrorCode } from '../ai/generate-plan';
 
 /**
  * Response headers applied to every API response. Global security headers are
@@ -10,6 +10,20 @@ export const API_SECURITY_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Cache-Control': 'no-store',
+};
+
+/** Exhaustive mapping from generation failure codes to HTTP statuses. */
+const AI_ERROR_STATUS: Record<AIGenerationErrorCode, number> = {
+  NOT_CONFIGURED: 503,
+  MODEL_UNAVAILABLE: 503,
+  AUTH_FAILED: 503,
+  RATE_LIMITED: 429,
+  TIMEOUT: 504,
+  UNAVAILABLE: 502,
+  EMPTY_RESPONSE: 502,
+  INVALID_JSON: 502,
+  SCHEMA_VALIDATION_FAILED: 502,
+  GENERATION_FAILED: 502,
 };
 
 export function jsonOk<T>(data: T, status = 200): NextResponse {
@@ -47,22 +61,21 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
 
   if (error instanceof AIGenerationError) {
-    const statusByCode: Record<string, number> = {
-      NOT_CONFIGURED: 503,
-      MODEL_UNAVAILABLE: 503,
-      AUTH_FAILED: 503,
-      RATE_LIMITED: 429,
-      TIMEOUT: 504,
-      UNAVAILABLE: 502,
-      EMPTY_RESPONSE: 502,
-      INVALID_JSON: 502,
-      SCHEMA_VALIDATION_FAILED: 502,
-      GENERATION_FAILED: 502,
-    };
-    return jsonError(error.message, statusByCode[error.code] ?? 502, error.code);
+    return jsonError(error.message, AI_ERROR_STATUS[error.code], error.code);
   }
 
   return jsonError('An unexpected error occurred. Please try again.', 500, 'INTERNAL_ERROR');
+}
+
+/**
+ * Stable machine-readable code for logs and metrics. Never includes user data
+ * or provider details, and keeps validation failures distinguishable from
+ * genuine internal errors.
+ */
+export function errorCode(error: unknown): string {
+  if (error instanceof AIGenerationError) return error.code;
+  if (error instanceof ValidationError) return error.code;
+  return 'INTERNAL_ERROR';
 }
 
 /**
